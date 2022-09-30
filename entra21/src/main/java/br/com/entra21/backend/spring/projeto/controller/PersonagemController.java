@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import br.com.entra21.backend.spring.projeto.model.ItemNivel3;
 import br.com.entra21.backend.spring.projeto.model.Personagem;
 import br.com.entra21.backend.spring.projeto.model.Programador;
+import br.com.entra21.backend.spring.projeto.model.Usuario;
 import br.com.entra21.backend.spring.projeto.repository.IPersonagemRepository;
 
 @RestController
@@ -34,41 +35,43 @@ import br.com.entra21.backend.spring.projeto.repository.IPersonagemRepository;
 public class PersonagemController {
 
 	@Autowired
-	
 	private IPersonagemRepository personagemRepository;
-	
+
 	@GetMapping()
 	@ResponseStatus(HttpStatus.OK)
-	
-	public List<Personagem> listar(){
-		
+	public List<Personagem> listar() {
+
 		List<Personagem> response = personagemRepository.findAll();
 		response.forEach(personagem -> {
 			setMaturidadeNivel3(personagem);
 		});
 		return response;
 	}
-	
+
 	@GetMapping("/{id}")
 	@ResponseStatus(HttpStatus.OK)
-	
-	public List<Personagem> buscar(@PathVariable("id") int param){
+	public List<Personagem> buscar(@PathVariable("id") int param) {
 		List<Personagem> response = personagemRepository.findById(param).stream().toList();
 		return response;
 	}
-	
-	@PostMapping()
-	@ResponseStatus(HttpStatus.CREATED)
-	
-	public @ResponseBody Personagem adicionar(@RequestBody Personagem novoPersonagem) {
-		return personagemRepository.save(novoPersonagem);
+
+	@PostMapping("/login")
+	public Personagem login(@RequestBody Personagem credencial) {
+		return personagemRepository.login(credencial.getNome_heroi(), credencial.getNome_real());
 	}
 	
+	
+	  @PostMapping()
+	  @ResponseStatus(HttpStatus.CREATED) public @ResponseBody Personagem
+	  adicionar(@RequestBody Personagem novoPersonagem) { return
+	  personagemRepository.save(novoPersonagem); }
+	 
+
 	@PutMapping("/{id}")
 	@ResponseStatus(HttpStatus.OK)
-	
-	public @ResponseBody Optional<Personagem> atualizar (@PathVariable("id") int param, @RequestBody Personagem personagemAtualizado ){
-		
+	public @ResponseBody Optional<Personagem> atualizar(@PathVariable("id") int param,
+			@RequestBody Personagem personagemAtualizado) {
+
 		Personagem atualizado = personagemRepository.findById(param).get();
 		atualizado.setHabilidade(personagemAtualizado.getHabilidade());
 		atualizado.setNome_heroi(personagemAtualizado.getNome_heroi());
@@ -76,18 +79,17 @@ public class PersonagemController {
 		atualizado.setAcessorio(personagemAtualizado.isAcessorio());
 		atualizado.setIdade(personagemAtualizado.getIdade());
 		personagemRepository.save(atualizado);
-		
+
 		return personagemRepository.findById(param);
 	}
-	
+
 	@DeleteMapping("/{id}")
 	@ResponseStatus(HttpStatus.ACCEPTED)
-	
-	public @ResponseBody boolean deletar(@PathVariable ("id") int param) {
+	public @ResponseBody boolean deletar(@PathVariable("id") int param) {
 		personagemRepository.deleteById(param);
 		return !personagemRepository.existsById(param);
 	}
-	
+
 	private void setMaturidadeNivel3(Personagem personagem) {
 
 		final String PATH = "localhost:8080/personagens";
@@ -98,49 +100,43 @@ public class PersonagemController {
 
 		headers.add("Content-type : application/json");
 
-
-
 		ObjectMapper mapper = new ObjectMapper();
 
 		mapper.setSerializationInclusion(Include.NON_NULL);
 
 		try {
 
+			Programador clone = mapper.readValue(mapper.writeValueAsString(personagem), Programador.class);
 
+			clone.setLinks(null);
 
-		Programador clone = mapper.readValue(mapper.writeValueAsString(personagem), Programador.class);
+			String nomeAtual = clone.getNome();
 
-		clone.setLinks(null);
+			clone.setNome("Nome diferente");
 
-		String nomeAtual = clone.getNome();
+			String jsonUpdate = mapper.writeValueAsString(clone);
 
-		clone.setNome("Nome diferente");
+			clone.setNome(nomeAtual);
 
-		String jsonUpdate = mapper.writeValueAsString(clone);
+			clone.setId(null);
 
-		clone.setNome(nomeAtual);
+			String jsonCreate = mapper.writeValueAsString(clone);
 
-		clone.setId(null);
+			personagem.setLinks(new ArrayList<>());
 
-		String jsonCreate = mapper.writeValueAsString(clone);
+			personagem.getLinks().add(new ItemNivel3("GET", PATH, null, null));
 
-		personagem.setLinks(new ArrayList<>());
+			personagem.getLinks().add(new ItemNivel3("GET", PATH + "/" + personagem.getId(), null, null));
 
-		personagem.getLinks().add(new ItemNivel3("GET", PATH, null, null));
+			personagem.getLinks().add(new ItemNivel3("POST", PATH, headers, jsonCreate));
 
-		personagem.getLinks().add(new ItemNivel3("GET", PATH + "/" + personagem.getId(), null, null));
-
-		personagem.getLinks().add(new ItemNivel3("POST", PATH, headers, jsonCreate));
-
-		personagem.getLinks().add(new ItemNivel3("PUT", PATH + "/" + personagem.getId(), headers, jsonUpdate));
+			personagem.getLinks().add(new ItemNivel3("PUT", PATH + "/" + personagem.getId(), headers, jsonUpdate));
 
 		} catch (JsonProcessingException e) {
 
-		e.printStackTrace();
+			e.printStackTrace();
 
 		}
 
-
-
-		}
+	}
 }
